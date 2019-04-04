@@ -1,3 +1,0 @@
-C:/Git/MECH488/build-nilrt-arm-release/CMakeFiles/app.dir
-C:/Git/MECH488/build-nilrt-arm-release/CMakeFiles/edit_cache.dir
-C:/Git/MECH488/build-nilrt-arm-release/CMakeFiles/rebuild_cache.dir
