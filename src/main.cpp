@@ -53,6 +53,10 @@ int main() {
 
         // !!! BEGIN YOUR CONTROL IMPLEMENTATION !!!
         // -----------------------------------------
+        //
+        // The code here is not what you will use for you project,
+        // but can serve as an example for implementation
+        //
         // analog loopback example (connect AO0 to AI0)
         double volts_write = std::sin(2 * PI * t.as_seconds());
         myrio.mspC.AO[0] = volts_write;
