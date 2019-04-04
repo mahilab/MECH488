@@ -1,0 +1,7 @@
+[
+{
+  "directory": "c:/Git/MECH488/build-nilrt-arm-release",
+  "command": "\\dev\\nilrt-arm\\sysroots\\i686-nilrtsdk-mingw32\\usr\\bin\\arm-nilrt-linux-gnueabi\\arm-nilrt-linux-gnueabi-g++.exe --sysroot=/dev/nilrt-arm/sysroots/cortexa9-vfpv3-nilrt-linux-gnueabi   -I../include -isystem \"C:/Program Files (x86)/MEL-nilrt-arm/include\"  -pthread -march=armv7-a -mfpu=vfpv3 -mfloat-abi=softfp -mcpu=cortex-a9 -O3 -DNDEBUG   -std=gnu++11 -o CMakeFiles\\app.dir\\src\\main.cpp.o -c C:\\Git\\MECH488\\src\\main.cpp",
+  "file": "C:/Git/MECH488/src/main.cpp"
+}
+]

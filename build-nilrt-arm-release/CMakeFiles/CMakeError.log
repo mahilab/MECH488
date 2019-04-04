@@ -1,0 +1,22 @@
+Compiling the CXX compiler identification source file "CMakeCXXCompilerId.cpp" failed.
+Compiler: /dev/nilrt-arm/sysroots/i686-nilrtsdk-mingw32/usr/bin/arm-nilrt-linux-gnueabi/arm-nilrt-linux-gnueabi-g++.exe 
+Build flags: 
+Id flags:  
+
+The output was:
+1
+c:/dev/nilrt-arm/sysroots/i686-nilrtsdk-mingw32/usr/bin/arm-nilrt-linux-gnueabi/../../libexec/arm-nilrt-linux-gnueabi/gcc/arm-nilrt-linux-gnueabi/6.3.0/real-ld.exe: cannot find crt1.o: No such file or directory
+c:/dev/nilrt-arm/sysroots/i686-nilrtsdk-mingw32/usr/bin/arm-nilrt-linux-gnueabi/../../libexec/arm-nilrt-linux-gnueabi/gcc/arm-nilrt-linux-gnueabi/6.3.0/real-ld.exe: cannot find crti.o: No such file or directory
+c:/dev/nilrt-arm/sysroots/i686-nilrtsdk-mingw32/usr/bin/arm-nilrt-linux-gnueabi/../../libexec/arm-nilrt-linux-gnueabi/gcc/arm-nilrt-linux-gnueabi/6.3.0/real-ld.exe: cannot find crtbegin.o: No such file or directory
+c:/dev/nilrt-arm/sysroots/i686-nilrtsdk-mingw32/usr/bin/arm-nilrt-linux-gnueabi/../../libexec/arm-nilrt-linux-gnueabi/gcc/arm-nilrt-linux-gnueabi/6.3.0/real-ld.exe: cannot find -lstdc++
+c:/dev/nilrt-arm/sysroots/i686-nilrtsdk-mingw32/usr/bin/arm-nilrt-linux-gnueabi/../../libexec/arm-nilrt-linux-gnueabi/gcc/arm-nilrt-linux-gnueabi/6.3.0/real-ld.exe: cannot find -lm
+c:/dev/nilrt-arm/sysroots/i686-nilrtsdk-mingw32/usr/bin/arm-nilrt-linux-gnueabi/../../libexec/arm-nilrt-linux-gnueabi/gcc/arm-nilrt-linux-gnueabi/6.3.0/real-ld.exe: cannot find -lgcc_s
+c:/dev/nilrt-arm/sysroots/i686-nilrtsdk-mingw32/usr/bin/arm-nilrt-linux-gnueabi/../../libexec/arm-nilrt-linux-gnueabi/gcc/arm-nilrt-linux-gnueabi/6.3.0/real-ld.exe: cannot find -lgcc
+c:/dev/nilrt-arm/sysroots/i686-nilrtsdk-mingw32/usr/bin/arm-nilrt-linux-gnueabi/../../libexec/arm-nilrt-linux-gnueabi/gcc/arm-nilrt-linux-gnueabi/6.3.0/real-ld.exe: cannot find -lc
+c:/dev/nilrt-arm/sysroots/i686-nilrtsdk-mingw32/usr/bin/arm-nilrt-linux-gnueabi/../../libexec/arm-nilrt-linux-gnueabi/gcc/arm-nilrt-linux-gnueabi/6.3.0/real-ld.exe: cannot find -lgcc_s
+c:/dev/nilrt-arm/sysroots/i686-nilrtsdk-mingw32/usr/bin/arm-nilrt-linux-gnueabi/../../libexec/arm-nilrt-linux-gnueabi/gcc/arm-nilrt-linux-gnueabi/6.3.0/real-ld.exe: cannot find -lgcc
+c:/dev/nilrt-arm/sysroots/i686-nilrtsdk-mingw32/usr/bin/arm-nilrt-linux-gnueabi/../../libexec/arm-nilrt-linux-gnueabi/gcc/arm-nilrt-linux-gnueabi/6.3.0/real-ld.exe: cannot find crtend.o: No such file or directory
+c:/dev/nilrt-arm/sysroots/i686-nilrtsdk-mingw32/usr/bin/arm-nilrt-linux-gnueabi/../../libexec/arm-nilrt-linux-gnueabi/gcc/arm-nilrt-linux-gnueabi/6.3.0/real-ld.exe: cannot find crtn.o: No such file or directory
+collect2.exe: error: ld returned 1 exit status
+
+
