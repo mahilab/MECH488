@@ -9,6 +9,7 @@
 
 [Bb]uild/
 [Bb]uild-*/
+.vscode/ipch/
 
 # Precompiled Headers
 *.gch
