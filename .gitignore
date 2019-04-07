@@ -11,6 +11,8 @@
 [Bb]uild-*/
 .vscode/ipch/
 
+MEL.log
+
 # Precompiled Headers
 *.gch
 *.pch
