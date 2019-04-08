@@ -56,6 +56,8 @@ int main() {
     Timer timer(hertz(1000));
     // create a Time point t
     Time t = Time::Zero;
+    // create a second order butterworth filter to filter velocity
+    Butterworth butt(2,hertz(10),hertz(1000));
     // headers for the csv file for datalogging
     std::vector<std::string> header = {"Time (s)", "Write (V)", "Read (V)"};
     // path to csv file (absolute_folder will be created in system root)
