@@ -46,6 +46,9 @@ int main() {
     myrio.mspC.DIO[1].set_direction(Out);
     // create MelNet so we can stream data to host PC
     MelNet mn(55002, 55001, "172.22.11.1");
+    // create your constants that you will use for control here
+    double k_theta = 0.0;
+    double k_omega = 0.0;
     // create Timer for our control loop
     Timer timer(hertz(1000));
     // create a Time point t
