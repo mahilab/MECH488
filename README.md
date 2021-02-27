@@ -7,7 +7,7 @@
 - Ensure that the current firmware version is `7.0.0f0`. If it is not, click the `Update Firmware` button and install the latest firmware.
 - Ensure `Enable Secure Shell Serve (sshd)` is enabled. 
 
-![MAX](https://raw.githubusercontent.com/mahilab/MECH488/master/misc/max.png)
+![MAX](https://raw.githubusercontent.com/mahilab/MECH488/master/docs/max.png)
 
 - SFTP the FPGA bitfile from [mahi-daq/misc](https://github.com/mahilab/mahi-daq/tree/master/misc) to the myRIO device:
 ```shell
