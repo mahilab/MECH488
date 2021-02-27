@@ -1,4 +1,6 @@
-## myRIO Hardware Setup (MECH 488 TAs only)
+# Initial Setup (MECH 488 TAs only)
+
+## myRIO Hardware
 
 - Install [LabVIEW myRIO Toolkit 2019 (32-bit)](https://www.ni.com/en-us/support/downloads/software-products/download.labview-myrio-toolkit.html#305910).
 - Connect the myRIO via USB to host PC and find the device in Measurement and Automation Explorer (MAX) under `Remote Systems`.
@@ -18,4 +20,15 @@ put NiFpga_MyRio1900Fpga60.lvbitx
 chmod 777 NiFpga_MyRio1900Fpga60.lvbitx
 ```
 
+## Cross-Compiler
 
+- Download and install the [NI ARM cross-compiler](http://www.ni.com/download/labview-real-time-module-2018/7813/en/) to `C:/dev/nilrt-arm` so that the directory contains `sysroots/`, `relocate_sdk.py`, etc. 
+- Once this is installed, you should be able to use the [nilrt-arm] kit with CMake Tools in VSCode to compile for the myRIO from Windows.
+- Otherwise, `mahi-daq` ships with a CMake toolchain file, which can be used like so:
+
+```shell
+> cd mahi-daq
+> mkdir build
+> cmake .. -G Ninja -DCMAKE_TOOLCHAIN_FILE="../cmake/nilrt-arm-toolchain.cmake" -DCMAKE_BUILD_TYPE="Release"
+> cmake --build .
+```
