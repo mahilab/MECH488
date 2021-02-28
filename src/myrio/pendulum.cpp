@@ -2,7 +2,7 @@
 #include <Mahi/Robo.hpp>  // for Butterworth
 #include <Mahi/Com.hpp>   // for UdpSocket, TcpSocket, TcpListener
 #include <Mahi/Util.hpp>  // for CtrlEvent, Timer, Time
-#include "Networking.hpp"
+#include "Common.hpp"
 #include <thread>
 #include <mutex>
 #include <atomic>
@@ -14,11 +14,64 @@ using namespace mahi::robo;
 using namespace mahi::util;
 
 bool g_stop = false;
+bool g_zero = false;
+
+
+template <class Formatter>
+class MyRioLogWritter : public Writer {
+public:
+    MyRioLogWritter(Severity max_severity = Debug) : Writer(max_severity), logs(100) {}
+
+    virtual void write(const LogRecord& record) override {
+        auto log = std::pair<Severity, std::string>(record.get_severity(), Formatter::format(record));
+        logs.push_back(log);
+    }
+    LogBuffer logs;
+};
+
+static MyRioLogWritter<TxtFormatter> remote_writer;
+
+class RateMonitor {
+public:
+
+    RateMonitor(mahi::util::Time updateInterval = mahi::util::seconds(1)) : 
+        m_updateInterval(updateInterval),
+        m_nextUpdateTime(m_updateInterval),
+        m_rate(0), m_ticks(0)
+    { }
+
+    void tick() {
+        m_ticks++;
+    }
+
+    void update(const mahi::util::Time& t) {
+        if (t > m_nextUpdateTime) {
+            m_rate = m_ticks / m_updateInterval.as_seconds();
+            m_nextUpdateTime += m_updateInterval;
+            m_ticks = 0;
+        }
+    }
+
+    double rate() const {
+        return m_rate;
+    }
+
+private:
+    Time m_updateInterval;
+    Time m_nextUpdateTime;
+    double m_rate;
+    double m_ticks;
+};
+
 
 class Pendulum  {
 public:
 
     Pendulum() {
+        if (MahiLogger) {
+            MahiLogger->add_writer(&remote_writer);
+            MahiLogger->set_max_severity(Debug);
+        }
         auto ctrl_hand = [](CtrlEvent event) { 
             static int count = 0;
             LOG(Warning) << "Ctrl-C Pressed";
@@ -31,28 +84,25 @@ public:
         register_ctrl_handler(ctrl_hand);
     }
 
-    ~Pendulum() {
-        m_tcp.disconnect();
-    }
-
-    void run() {
+    void run(Frequency loop_rate = 1000_Hz) {
         // wait for TCP connection from GUI client
         LOG(Info) << "Waiting for GUI to connect ...";
+        TcpSocket   tcp;
         TcpListener listener;
         listener.listen(SERVER_TCP, SERVER_IP);
-        if (listener.accept(m_tcp) != Socket::Done) {
+        if (listener.accept(tcp) != Socket::Done) {
             LOG(Error) << "Failed to connect to GUI.";
             return;
         }
-        LOG(Info) << "Connected to GUI: " << m_tcp.get_remote_port() << "@" << m_tcp.get_remote_address();
+        LOG(Info) << "Connected to GUI: " << tcp.get_remote_port() << "@" << tcp.get_remote_address();
          // start the control thread
         m_running = true;
-        m_ctrlThread = std::thread(&Pendulum::ctrlThreadFunc, this);
+        m_ctrlThread = std::thread(&Pendulum::ctrlThreadFunc, this, loop_rate);
         // listen for TCP messages from GUI
         Packet packet;
         while (m_running) {
             packet;
-            auto status = m_tcp.receive(packet);
+            auto status = tcp.receive(packet);
             if (status == Socket::Disconnected) {
                 LOG(Info) << "GUI disconnected.";
                 m_running = false;
@@ -66,50 +116,80 @@ public:
                         std::lock_guard<std::mutex> lock(m_mtx);
                         packet << m_status;
                     }
-                    m_tcp.send(packet);
+                    // send logs
+                    packet << remote_writer.logs.size();
+                    for (int i = 0; i < remote_writer.logs.size(); ++i)
+                        packet << (int)remote_writer.logs[i].first << remote_writer.logs[i].second;
+                    tcp.send(packet);
+                    remote_writer.logs.clear();
                 }
                 else if (msg == Message::Enable) {
                     std::lock_guard<std::mutex> lock(m_mtx);
                     m_status.enabled = true;
+                    LOG(Info) << "Enabling pendulum.";
                 }
                 else if (msg == Message::Disable) {
                     std::lock_guard<std::mutex> lock(m_mtx);
                     m_status.enabled = false;
+                    LOG(Info) << "Disabling pendulum.";
                 }
-                else if (msg == Message::ChangeMode) {
+                else if (msg == Message::Feedback) {
                     std::lock_guard<std::mutex> lock(m_mtx);
                     m_status.mode = m_status.mode == (int)Mode::Encoder ? (int)Mode::Midori : (int)Mode::Encoder;
+                    LOG(Info) << "Changing pendulum feedback mode to " << (m_status.mode == (int)Mode::Encoder ? "Encoder." : "Midori.");
+                }
+                else if (msg == Message::Zero) {
+                    std::lock_guard<std::mutex> lock(m_mtx);
+                    g_zero = true;
+                    LOG(Info) << "Zeroing pendulum encoder.";
                 }
                 else if (msg == Message::Shutdown) {
+                    LOG(Info) << "Shutting down pendulum controller.";
                     m_running = false;
                 }
             }
             else {
-                LOG(Error) << "Unexpected error.";
+                LOG(Error) << "Unexpected error!";
                 m_running = false;
             }
         }
         m_ctrlThread.join();
+        tcp.disconnect();
     }
 
     virtual double encoderControl(double t, int counts) {
-        return 10*std::sin(2*PI*t);
+        plot("f1",10*std::sin(2*PI*t*1));
+        plot("f2",10*std::sin(2*PI*t*2));
+        plot("f3",10*std::sin(2*PI*t*3));
+        plot("f4",10*std::sin(2*PI*t*4));
+        return 0;
     }
 
     virtual double midoriControl(double t, double midori_volts) {
-        return 10*std::sin(2*PI*t);
+        plot("Time",t);
+        return 0;
     }
 
-    void ctrlThreadFunc() {
 
-        LOG(Info) << "Starting myRIO control thread.";
+    virtual void plot(const std::string& label, double value) {
+        if (!m_running) return;
+        m_plots.push_back({label,value});
+    }
+
+    void ctrlThreadFunc(Frequency loop_rate) {
+
+        LOG(Info) << "Starting pendulum control thread.";
         // initialize UDP stream
         UdpSocket udp;
         auto result = udp.bind(SERVER_UDP);
         if (result == Socket::Done)
-            LOG(Info) << "UPD socket bound to port " << udp.get_local_port();
+            LOG(Info) << "Opened UPD socket on port " << udp.get_local_port() << ".";
+        else
+            LOG(Error) << "Failed to open UDP socket on port " << udp.get_local_port() << ".";
         State state;
         Packet packet;
+        Data data;
+        m_plots.reserve(10);
         // initialize myRIO       
         MyRio myrio;
         myrio.mspC.encoder.set_channels({0});
@@ -118,7 +198,8 @@ public:
         myrio.mspC.DO.set_channels({1});
         myrio.enable();
         // timing
-        Timer timer(1000_Hz);
+        Timer timer(loop_rate);
+        RateMonitor monitor;
         // start the control loop
         while (m_running) {
             Mode mode;
@@ -126,10 +207,18 @@ public:
             // update status
             {
                 std::lock_guard<std::mutex> lock(m_mtx);
-                m_status.running = m_running;
-                m_status.misses  = (int)timer.get_misses();
-                mode             = (Mode)m_status.mode;
-                enabled          = m_status.enabled;
+                m_status.running   = m_running;
+                m_status.frequency = monitor.rate();
+                m_status.misses    = (int)timer.get_misses();
+                m_status.wait      = timer.get_wait_ratio();
+                mode               = (Mode)m_status.mode;
+                enabled            = m_status.enabled;
+            }
+            // check for encoder zero
+            if (g_zero) {
+                std::lock_guard<std::mutex> lock(m_mtx);
+                myrio.mspC.encoder.zero(0);
+                g_zero = false;
             }
             // read inputs
             myrio.read_all();
@@ -148,12 +237,17 @@ public:
             for (int l = 0; l < 4; ++l)
                 myrio.LED[l] = enabled;
             myrio.write_all();
-            // stream state
+            // stream data
             packet.clear();
-            packet << state;
-            udp.send(packet, CLIENT_IP, CLIENT_UDP);
+            data.state = state;
+            data.plots = m_plots;
+            packet << data;
+            udp.send(packet, CLIENT_IP, CLIENT_UDP);     
+            m_plots.clear();         
             if (g_stop)
                 m_running = false;
+            monitor.tick();
+            monitor.update(timer.get_elapsed_time());
             timer.wait();
         }   
         myrio.mspC.AO[0] = 0;
@@ -167,15 +261,15 @@ public:
         udp.send(packet, CLIENT_IP, CLIENT_UDP);
         myrio.disable();
         myrio.close();
-        LOG(Info) << "Terminating myRIO control thread.";
+        LOG(Info) << "Terminated pendulum control thread.";
     }
 
 private:
-    TcpSocket        m_tcp;
-    std::thread      m_ctrlThread;
-    std::mutex       m_mtx;
-    std::atomic_bool m_running;
-    Status           m_status;
+    std::thread       m_ctrlThread;
+    std::mutex        m_mtx;
+    std::atomic_bool  m_running;
+    Status            m_status;
+    std::vector<Plot> m_plots;
 };
 
 int main(int argc, char const *argv[])

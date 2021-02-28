@@ -3,14 +3,14 @@
 template <class Formatter>
 class GuiLogWritter : public Writer {
 public:
-    GuiLogWritter(Severity max_severity = Debug) : Writer(max_severity), logs(500) {}
+    GuiLogWritter(Severity max_severity = Debug) : Writer(max_severity), l_logs(500), r_logs(500) {}
 
     virtual void write(const LogRecord& record) override {
-        auto log =
-            std::pair<Severity, std::string>(record.get_severity(), Formatter::format(record));
-        logs.push_back(log);
+        auto log = std::pair<Severity, std::string>(record.get_severity(), Formatter::format(record));
+        l_logs.push_back(log);
     }
-    RingBuffer<std::pair<Severity, std::string>> logs;
+    LogBuffer l_logs;
+    LogBuffer r_logs;
 };
 
 static GuiLogWritter<TxtFormatter> writer;
@@ -20,7 +20,7 @@ static GuiLogWritter<TxtFormatter> writer;
 PendulumGui::PendulumGui() : 
     Application(1260,720,"Pendulum GUI"),
     m_connected(false),
-    m_states(2000)
+    m_queue(2000)
 {
     style_gui();
     if (MahiLogger) {
@@ -29,9 +29,9 @@ PendulumGui::PendulumGui() :
     }
     auto result = m_udp.bind(CLIENT_UDP);
     if (result == Socket::Done)
-        LOG(Info) << "UPD socket bound to port " << m_udp.get_local_port();
+        LOG(Info) << "Opened UPD socket on port " << m_udp.get_local_port() << ".";
     else
-        LOG(Error) << "Failed to bind UDP socket to port " << m_udp.get_local_port();
+        LOG(Error) << "Failed to open UDP socket on port " << m_udp.get_local_port() << ".";
     ImGui::DisableViewports();
     ImGui::DisableDocking();
 }
@@ -42,35 +42,45 @@ PendulumGui::~PendulumGui() {
 
 void PendulumGui::update() {
 
+
     ping();
 
     constexpr int pad     = 10;
     constexpr int w_left = 250;
-    constexpr int h_comm = 165;
-    constexpr int h_stat = 112;
-    constexpr int h_netw = 265;
+    constexpr int h_comm = 190;
+    constexpr int h_stat = 175;
+    constexpr int h_netw = 175;
+    constexpr int w_logs = 1260/2-pad-pad/2;
     constexpr int h_logs = 720 - 5*pad - h_comm - h_stat - h_netw;
 
     ImGui::BeginFixed("Commands", ImVec2(pad,pad), ImVec2(w_left,h_comm), ImGuiWindowFlags_NoCollapse);
     show_cmds();
     ImGui::End();
 
-    ImGui::BeginFixed("Status", ImVec2(pad,h_comm+2*pad), ImVec2(w_left,h_stat), ImGuiWindowFlags_NoCollapse);
+    ImGui::BeginFixed("Controller Status", ImVec2(pad,h_comm+2*pad), ImVec2(w_left,h_stat), ImGuiWindowFlags_NoCollapse);
     show_status();
     ImGui::End();
 
-    ImGui::BeginFixed("Network", ImVec2(pad,h_comm+h_stat+3*pad), ImVec2(w_left, h_netw), ImGuiWindowFlags_NoCollapse);
+    ImGui::BeginFixed("Network Status", ImVec2(pad,h_comm+h_stat+3*pad), ImVec2(w_left, h_netw), ImGuiWindowFlags_NoCollapse);
     show_network();
     ImGui::End();
 
-    ImGui::BeginFixed("Logs", ImVec2(pad,h_comm+h_stat+h_netw+4*pad), ImVec2(1260-2*pad,h_logs), ImGuiWindowFlags_NoCollapse);
-    show_logs();
+    static ImGuiTextFilter l_filter;
+    static bool            l_verb = false;
+    ImGui::BeginFixed("Local Logs", ImVec2(pad,h_comm+h_stat+h_netw+4*pad), ImVec2(w_logs,h_logs), ImGuiWindowFlags_NoCollapse);
+    show_logs(writer.l_logs, l_filter, l_verb);
     ImGui::End();
 
+    static ImGuiTextFilter r_filter;
+    static bool            r_verb = false;
+    ImGui::BeginFixed("Remote Logs", ImVec2(2*pad+w_logs,h_comm+h_stat+h_netw+4*pad), ImVec2(w_logs,h_logs), ImGuiWindowFlags_NoCollapse);
+    show_logs(writer.r_logs,r_filter,r_verb);
+    ImGui::End();
 
-    ImGui::BeginFixed("Plot", ImVec2(w_left+2*pad,pad), ImVec2(1260-3*pad-w_left,h_comm+h_stat+h_netw+2*pad), ImGuiWindowFlags_NoCollapse);
+    ImGui::BeginFixed("Data", ImVec2(w_left+2*pad,pad), ImVec2(1260-3*pad-w_left,h_comm+h_stat+h_netw+2*pad), ImGuiWindowFlags_NoCollapse);
     show_plot();
     ImGui::End();
+
 }
 
 bool PendulumGui::connect() {
@@ -96,12 +106,21 @@ bool PendulumGui::ping() {
         Packet packet;
         auto result = m_tcp.receive(packet);
         if (result == Socket::Done) {
-            packet >> m_status;
+            int new_logs;
+            packet >> m_status >> new_logs;
+            for (int i = 0; i < new_logs; ++i) {
+                int sev;
+                std::string msg;
+                packet >> sev >> msg;
+                auto log = std::pair<Severity, std::string>((Severity)sev, msg);
+                writer.r_logs.push_back(log);
+            }
+
             m_connected = true;
             return true;
         }
         else {
-            LOG(Error) << "Lost connection to myRIO.";
+            LOG(Warning) << "Lost connection to myRIO.";
             m_connected = false;
             return false;
         }
@@ -128,9 +147,9 @@ bool PendulumGui::send_message(Message msg) {
 }
 
 void PendulumGui::data_thread_func() {
-    LOG(Info) << "Starting data stream thread.";
+    LOG(Info) << "Starting data streaming thread.";
     Packet packet;
-    State state;
+    Data data;
     unsigned short port;
     IpAddress address;
     int lastTick = -1;
@@ -141,20 +160,19 @@ void PendulumGui::data_thread_func() {
         packet.clear();
         auto result = m_udp.receive(packet, address, port);
         if (result == Socket::Done) {
-            packet >> state;
-            if (state.tick == -1) {
+            packet >> data;
+            if (data.state.tick == -1) {
                 keep_alive = false; 
                 break;
             } 
-            else if (lastTick + 1 != state.tick) 
+            else if (lastTick + 1 != data.state.tick) 
                 m_packsLost++;         
-            if (!m_states.try_push(state))
-                m_packsLost++;
+            m_queue.try_push(data);
             m_packsRecv++;
-            lastTick = state.tick;
+            lastTick = data.state.tick;
         }
     }
-    LOG(Info) << "Data stream thread terminated.";
+    LOG(Info) << "Terminated data streaming thread.";
 }
 
 void PendulumGui::clear_data() {
@@ -164,24 +182,7 @@ void PendulumGui::clear_data() {
     m_midoriData.clear();
     m_encoderData.clear();
     m_enableData.clear();
-}
-
-void PendulumGui::show_network() {
-    if (m_connected) {
-        ImGui::Text("TCP Messaging");
-        ImGui::LabelText("Local", "%d@%s", m_tcp.get_local_port(), CLIENT_IP);
-        ImGui::LabelText("Remote", "%d@%s", m_tcp.get_remote_port(), m_tcp.get_remote_address().to_string());
-        ImGui::LabelText("Sent", "%d", m_msgSent);
-        ImGui::Separator();
-        ImGui::Text("UDP Data Stream");
-        ImGui::LabelText("Local", "%d@%s", CLIENT_UDP, CLIENT_IP);
-        ImGui::LabelText("Remote", "%d@%s", SERVER_UDP, SERVER_IP);
-        ImGui::LabelText("Received", "%d", m_packsRecv);
-        ImGui::LabelText("Lost", "%d", m_packsLost);
-    }
-    else {
-        ImGui::Text("Connect myRIO");
-    }
+    m_plots.clear();
 }
 
 void PendulumGui::show_cmds() {
@@ -198,8 +199,10 @@ void PendulumGui::show_cmds() {
         send_message(Message::Disable);   
     ImGui::EndDisabled();
     ImGui::BeginDisabled(!m_connected);
-    if (ImGui::Button("Change Mode", ImVec2(-1,0)))
-        send_message(Message::ChangeMode);
+    if (ImGui::Button("Change Feedback", ImVec2(-1,0))) 
+        send_message(Message::Feedback);    
+    if (ImGui::Button("Zero Encoder", ImVec2(-1,0)))
+        send_message(Message::Zero);
     if (ImGui::Button("Shutdown", ImVec2(-1,0))) {
         send_message(Message::Shutdown); 
         m_status = Status();
@@ -207,9 +210,9 @@ void PendulumGui::show_cmds() {
     ImGui::EndDisabled();
 }
 
-void status_line(const char* left, const char* right, Color col) {
+void info_line(const char* left, const char* right, Color col =  ImGui::GetStyleColorVec4(ImGuiCol_Text)) {
     ImGui::TextUnformatted(left);
-    ImGui::SameLine(150);
+    ImGui::SameLine(120);
     ImGui::PushStyleColor(ImGuiCol_Text, col);
     ImGui::TextUnformatted(right);
     ImGui::PopStyleColor();
@@ -217,39 +220,42 @@ void status_line(const char* left, const char* right, Color col) {
 
 void PendulumGui::show_status() {
     if (m_connected) {
-        status_line("Connected:", m_connected ? "True" : "False", m_connected ? Blues::DeepSkyBlue : ImVec4(0.85f, 0.37f, 0.00f, 1.00f));
-        status_line("Running:", m_status.running ? "True" : "False", m_status.running ? Blues::DeepSkyBlue : ImVec4(0.85f, 0.37f, 0.00f, 1.00f));
-        status_line("Enabled:", m_status.enabled ? "True" : "False", m_status.enabled ? Blues::DeepSkyBlue : ImVec4(0.85f, 0.37f, 0.00f, 1.00f));
-        status_line("Mode:", m_status.mode == (int)Mode::Encoder ? "Enocder" : "Midori", ImGui::GetStyleColorVec4(ImGuiCol_Text));
+        info_line("Connected", m_connected ? "True" : "False", m_connected ? Blues::DeepSkyBlue : ImVec4(0.951f, 0.208f, 0.387f, 1.000f));
+        info_line("Running", m_status.running ? "True" : "False", m_status.running ? Blues::DeepSkyBlue : ImVec4(0.951f, 0.208f, 0.387f, 1.000f));
+        info_line("Enabled", m_status.enabled ? "True" : "False", m_status.enabled ? Blues::DeepSkyBlue : ImVec4(0.951f, 0.208f, 0.387f, 1.000f));
+        info_line("Feedback", m_status.mode == (int)Mode::Encoder ? "Enocder" : "Midori");
+        info_line("Loop Rate", fmt::format("{} Hz",m_status.frequency).c_str());
+        info_line("Misses", fmt::format("{}",m_status.misses).c_str());
+        info_line("Wait Ratio", fmt::format("{:.1f}%",m_status.wait*100).c_str());
     }
     else {
         ImGui::Text("Connect myRIO");
     }
 }
 
-void PendulumGui::show_logs() {
-    // log window
-    static ImGuiTextFilter                     filter;
-    static std::unordered_map<Severity, Color> colors = {
-        {None, Grays::Gray50},      {Fatal, Reds::Red}, {Error, Pinks::HotPink},
-        {Warning, Yellows::Yellow}, {Info, Whites::White},  {Verbose, Greens::Chartreuse},
-        {Debug, Cyans::Cyan}};
+void PendulumGui::show_network() {
+    if (m_connected) {
+        auto defcol = ImGui::GetStyleColorVec4(ImGuiCol_Text);
+        info_line("TCP Local", fmt::format("{}@{}",m_tcp.get_local_port(), CLIENT_IP).c_str());
+        info_line("TCP Remote", fmt::format("{}@{}",m_tcp.get_remote_port(), SERVER_IP).c_str());
+        info_line("UDP Local", fmt::format("{}@{}",CLIENT_UDP, CLIENT_IP).c_str());
+        info_line("UDP Remote", fmt::format("{}@{}",SERVER_UDP, SERVER_IP).c_str());
+        info_line("Sent",fmt::format("{}", m_msgSent).c_str());
+        info_line("Received",fmt::format("{}", m_packsRecv).c_str());
+        info_line("Lost",fmt::format("{}", m_packsLost).c_str());
+        // ImGui::LabelText("Local", "%d@%s", CLIENT_UDP, CLIENT_IP);
+        // ImGui::LabelText("Remote", "%d@%s", SERVER_UDP, SERVER_IP);
 
-    // if (ImGui::Button("Clear"))
-    //     writer.logs.clear();
-    // ImGui::SameLine();
-    // filter.Draw("Filter", -50);
-    ImGui::BeginChild("scrolling", ImVec2(0, 0), false, ImGuiWindowFlags_HorizontalScrollbar);
-    for (int i = 0; i < writer.logs.size(); ++i) {
-        if (filter.PassFilter(writer.logs[i].second.c_str())) {
-            ImGui::PushStyleColor(ImGuiCol_Text, colors[writer.logs[i].first]);
-            ImGui::TextUnformatted(writer.logs[i].second.c_str());
-            ImGui::PopStyleColor();
-        }
+        // ImGui::LabelText("Local", "%d@%s", m_tcp.get_local_port(), CLIENT_IP);
+        // ImGui::LabelText("Remote", "%d@%s", m_tcp.get_remote_port(), m_tcp.get_remote_address().to_string());
+        // ImGui::Separator();
+        // ImGui::LabelText("Local", "%d@%s", CLIENT_UDP, CLIENT_IP);
+        // ImGui::LabelText("Remote", "%d@%s", SERVER_UDP, SERVER_IP);
+        // ImGui::LabelText("Packets", "%d / %d", m_packsRecv, m_packsLost);
     }
-    if (ImGui::GetScrollY() >= ImGui::GetScrollMaxY())
-        ImGui::SetScrollHereY(1.0f);
-    ImGui::EndChild();
+    else {
+        ImGui::Text("Connect myRIO");
+    }
 }
 
 void PendulumGui::show_plot() {
@@ -257,19 +263,29 @@ void PendulumGui::show_plot() {
     static double latestTime = 0;
     static bool   paused     = false;
 
-    while (m_states.front()) {
-        auto state = *m_states.front();
-        m_states.pop();
+    for (auto& p : m_plots)
+        p.second.first = false;
+
+    while (m_queue.front()) {
+        auto data = *m_queue.front();
+        m_queue.pop();
         if (!paused) {
-            latestTime = state.time;
-            m_timeData.push_back(state.time);
-            m_senseData.push_back(state.sense);
-            m_commandData.push_back(state.command);
-            m_midoriData.push_back(state.midori);
-            m_encoderData.push_back(state.encoder);
-            m_enableData.push_back(state.enable);
+            latestTime = data.state.time;
+            m_timeData.push_back(latestTime);
+            m_senseData.push_back(data.state.sense);
+            m_commandData.push_back(data.state.command);
+            m_midoriData.push_back(data.state.midori);
+            m_encoderData.push_back(data.state.encoder);
+            m_enableData.push_back(data.state.enable);
+            // user plots
+            for (auto& p : data.plots) {
+                m_plots[p.label].second.push_back(latestTime, p.value);  
+                m_plots[p.label].first = true;
+            }            
         }
     }
+
+
 
     if (ImGui::Button("Clear",ImVec2(100,0))) {
         clear_data();
@@ -284,26 +300,73 @@ void PendulumGui::show_plot() {
             clear_data();
         paused = !paused;
     }
+    static bool show_default = true;
+    static bool show_user    = true;
+    ImGui::SameLine();
+    ImGui::Checkbox("Show Default Plots",&show_default);
+    ImGui::SameLine();
+    ImGui::Checkbox("Show User Plots",&show_user);
+
     ImGui::SameLine(880);
     ImGui::Text("    %.3f FPS", ImGui::GetIO().Framerate);
-    if (!paused)
+    if (!paused && m_connected)
         ImPlot::SetNextPlotLimitsX(latestTime - 10, latestTime, ImGuiCond_Always);
     ImPlot::SetNextPlotLimitsY(-10,10,ImPlotYAxis_1);
-    if (ImPlot::BeginPlot("##State", "Time [s]", "Voltage [V]", ImVec2(-1,-1), ImPlotFlags_YAxis2, 0, 0, 0, 0, "Counts")) {
-        ImPlot::SetNextFillStyle(Blues::DeepSkyBlue);        
-        ImPlot::PlotDigital("Enable",  &m_timeData.data[0], &m_enableData.data[0], m_timeData.data.size(), m_timeData.offset);
-        ImPlot::PlotLine("Sense [V]", &m_timeData.data[0], &m_senseData.data[0], m_timeData.data.size(), m_timeData.offset);
-        ImPlot::PlotLine("Command [V]", &m_timeData.data[0], &m_commandData.data[0], m_timeData.data.size(), m_timeData.offset);
-        ImPlot::PlotLine("Midori [V]", &m_timeData.data[0], &m_midoriData.data[0], m_timeData.data.size(), m_timeData.offset);
-        ImPlot::SetPlotYAxis(ImPlotYAxis_2);
-        ImPlot::PlotLine("Encoder [counts]", &m_timeData.data[0], &m_encoderData.data[0], m_timeData.data.size(), m_timeData.offset);
+    if (ImPlot::BeginPlot("##State", "Time [s]", "Voltage [V]", ImVec2(-1,-1), show_user ? ImPlotFlags_YAxis2 | ImPlotFlags_YAxis3 : ImPlotFlags_YAxis2, 0, 0, 0, 0, "Counts", "User")) {
+        if (show_default) {
+            ImPlot::SetPlotYAxis(ImPlotYAxis_1);
+            ImPlot::SetNextFillStyle(Blues::DeepSkyBlue);        
+            ImPlot::PlotDigital("Enable",  &m_timeData.data[0], &m_enableData.data[0], m_timeData.data.size(), m_timeData.offset);
+            ImPlot::SetNextLineStyle(Yellows::Yellow);
+            ImPlot::PlotLine("Sense", &m_timeData.data[0], &m_senseData.data[0], m_timeData.data.size(), m_timeData.offset);
+            ImPlot::SetNextLineStyle(Oranges::Orange);
+            ImPlot::PlotLine("Command", &m_timeData.data[0], &m_commandData.data[0], m_timeData.data.size(), m_timeData.offset);
+            ImPlot::SetNextLineStyle(Cyans::LightSeaGreen);
+            ImPlot::PlotLine("Midori", &m_timeData.data[0], &m_midoriData.data[0], m_timeData.data.size(), m_timeData.offset);
+            ImPlot::SetPlotYAxis(ImPlotYAxis_2);
+            ImPlot::SetNextLineStyle(Grays::Gray50);
+            ImPlot::PlotLine("Encoder", &m_timeData.data[0], &m_encoderData.data[0], m_timeData.data.size(), m_timeData.offset);
+        }
+        if (show_user) {
+            ImPlot::SetPlotYAxis(ImPlotYAxis_3);
+            for (auto& p : m_plots) {
+                if (p.second.first)
+                    ImPlot::PlotLine(p.first.c_str(), &p.second.second.data[0].x, &p.second.second.data[0].y, p.second.second.data.size(), p.second.second.offset, 2*sizeof(double));
+            }
+        }
         ImPlot::EndPlot();
     }
 }
 
+void PendulumGui::show_logs(LogBuffer& logs, ImGuiTextFilter& filter, bool& verb) {
+    static std::unordered_map<Severity, Color> colors = {
+        {None, Grays::Gray50},      {Fatal, Reds::Red}, {Error, ImVec4(0.951f, 0.208f, 0.387f, 1.000f)},
+        {Warning, Yellows::Yellow}, {Info, ImGui::GetStyleColorVec4(ImGuiCol_Text)},  {Verbose, Cyans::LightSeaGreen},
+        {Debug, Cyans::Cyan}};
+
+    if (ImGui::Button("Clear"))
+        logs.clear();
+    ImGui::SameLine();
+    ImGui::Checkbox("Show All",&verb);
+    ImGui::SameLine(200);
+    filter.Draw("Filter", -40);
+    ImGui::BeginChild("scrolling", ImVec2(0, 0), false, ImGuiWindowFlags_HorizontalScrollbar);
+    for (int i = 0; i < logs.size(); ++i) {
+        if (filter.PassFilter(logs[i].second.c_str()) && (verb ? true : logs[i].first < Severity::Verbose)) {
+            ImGui::PushStyleColor(ImGuiCol_Text, colors[logs[i].first]);
+            ImGui::TextUnformatted(logs[i].second.c_str());
+            ImGui::PopStyleColor();
+        }
+    }
+    if (ImGui::GetScrollY() >= ImGui::GetScrollMaxY())
+        ImGui::SetScrollHereY(1.0f);
+    ImGui::EndChild();
+}
+
 void PendulumGui::style_gui() {
-    ImVec4 dark_accent  = ImVec4(0.85f, 0.37f, 0.00f, 1.00f);
-    ImVec4 light_accent = ImVec4(1.00f, 0.63f, 0.00f, 1.00f);
+
+    ImVec4 dark_accent  = ImVec4(0.951f, 0.268f, 0.208f, 1.000f);
+    ImVec4 light_accent = ImVec4(0.951f, 0.208f, 0.387f, 1.000f);
 
     set_background({0.15f, 0.16f, 0.21f, 1.00f});
     ImPlot::SetColormap(ImPlotColormap_Default);
@@ -402,6 +465,8 @@ void PendulumGui::style_gui() {
     pcolors[ImPlotCol_Selection]     = ImVec4(0.000f, 0.571f, 1.000f, 1.000f);
     pcolors[ImPlotCol_Query]         = IMPLOT_AUTO_COL;
     pcolors[ImPlotCol_Crosshairs]    = IMPLOT_AUTO_COL;
+
+    ImPlot::GetStyle().DigitalBitHeight = 20;
 
     auto& pstyle = ImPlot::GetStyle();
     pstyle.PlotPadding = pstyle.LegendPadding = {12,12};

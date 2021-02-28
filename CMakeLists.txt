@@ -16,9 +16,9 @@ if (WIN32)
     FetchContent_MakeAvailable(mahi-gui)
 
     # Pendulum GUI application
-    add_executable(pendulum-gui src/windows/pendulum-gui.cpp src/windows/PendulumGui.hpp src/windows/PendulumGui.cpp)
+    add_executable(pendulum-gui src/windows/pendulum-gui.cpp src/windows/PendulumGui.hpp src/windows/PendulumGui.cpp src/windows/icons/pendulum-gui.rc)
     target_link_libraries(pendulum-gui mahi::com mahi::gui)
-    target_include_directories(pendulum-gui PUBLIC src/common)
+    target_include_directories(pendulum-gui PUBLIC src)
 
 elseif(NI_LRT)
 
@@ -35,11 +35,11 @@ elseif(NI_LRT)
     # basic myRIO application
     add_executable(basic src/myrio/basic.cpp)
     target_link_libraries(basic mahi::daq mahi::robo mahi::com)
-    target_include_directories(basic PUBLIC src/common)
+    target_include_directories(basic PUBLIC src)
 
     # Pendulum application
     add_executable(pendulum src/myrio/pendulum.cpp)
     target_link_libraries(pendulum mahi::daq mahi::robo mahi::com)
-    target_include_directories(pendulum PUBLIC src/common)
+    target_include_directories(pendulum PUBLIC src)
 
 endif()
