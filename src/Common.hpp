@@ -86,6 +86,7 @@ inline Packet& operator<<(Packet& packet, const Data& data) {
     packet << data.state << (int)data.plots.size();
     for (auto& p : data.plots)
         packet << p;
+    return packet;
 };
 
 inline Packet& operator>>(Packet& packet, Data& data) {
@@ -94,4 +95,5 @@ inline Packet& operator>>(Packet& packet, Data& data) {
     data.plots.resize(plots_size);
     for (auto& p : data.plots)
         packet >> p;
+    return packet;
 };
