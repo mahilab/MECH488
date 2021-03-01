@@ -5,19 +5,21 @@
 #include <mutex>
 #include <atomic>
 
+#define MAX_SAMPLES 20000
+
 using namespace mahi::gui;
 
-struct DataBuffer1D {
-    DataBuffer1D(int max_size = 20000) : max_size(max_size) {
+struct DataBuffer {
+    DataBuffer() {
         offset = 0;
-        data.reserve(max_size);
+        data.reserve(MAX_SAMPLES);
     }
     void push_back(double v) {
-        if (data.size() < max_size)
+        if (data.size() < MAX_SAMPLES)
             data.push_back(v);
         else {
             data[offset] = v;
-            offset       = (offset + 1) % max_size;
+            offset       = (offset + 1) % MAX_SAMPLES;
         }
     }
     void clear() {
@@ -29,34 +31,6 @@ struct DataBuffer1D {
 public:
     int               offset;
     ImVector<double>  data;
-private:
-    const int         max_size;
-};
-
-struct DataBuffer2D {
-    DataBuffer2D(int max_size = 20000) : max_size(max_size) {
-        offset = 0;
-        data.reserve(max_size);
-    }
-    void push_back(double x, double y) {
-        if (data.size() < max_size)
-            data.push_back(ImPlotPoint(x, y));
-        else {
-            data[offset] = ImPlotPoint(x, y);
-            offset       = (offset + 1) % max_size;
-        }
-    }
-    void clear() {
-        if (data.size() > 0) {
-            data.shrink(0);
-            offset = 0;
-        }
-    }
-public:
-    int                   offset;
-    ImVector<ImPlotPoint> data;
-private:
-    const int             max_size;
 };
 
 class PendulumGui : public Application {
@@ -70,6 +44,7 @@ private:
     bool send_message(Message msg);
     void data_thread_func();
     void clear_data();
+    void export_data(const std::string& filepath);
     void show_network();
     void show_logs(LogBuffer& logs, ImGuiTextFilter& filter, bool& verb);
     void show_cmds();
@@ -80,6 +55,7 @@ private:
     TcpSocket             m_tcp;
     UdpSocket             m_udp;
     std::atomic_bool      m_connected;
+    std::mutex            m_data_mtx;
     Status                m_status;
     std::thread           m_data_thread;
     int                   m_msgSent   = 0;
@@ -87,11 +63,11 @@ private:
     int                   m_packsLost = 0;
 private:
     SPSCQueue<Data> m_queue;
-    DataBuffer1D      m_timeData;
-    DataBuffer1D      m_senseData;
-    DataBuffer1D      m_commandData;
-    DataBuffer1D      m_midoriData;
-    DataBuffer1D      m_encoderData;
-    DataBuffer1D      m_enableData;
-    std::map<std::string,std::pair<bool,DataBuffer2D>> m_plots;
+    DataBuffer      m_timeData;
+    DataBuffer      m_senseData;
+    DataBuffer      m_commandData;
+    DataBuffer      m_midoriData;
+    DataBuffer      m_encoderData;
+    DataBuffer      m_enableData;
+    std::map<std::string,std::pair<bool,DataBuffer>> m_plots;
 };
