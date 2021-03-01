@@ -150,8 +150,12 @@ void IPendulum::run(Frequency loop_rate) {
 }
 
 void IPendulum::plot(const std::string& label, double value) {
-    if (!m_running) return;
-    m_plots.push_back({label,value});
+    if (!m_running) {
+        LOG(Warning) << "Plots can only be called when the controller is running!";
+        return;
+    }
+    if (m_plots.size() < 5)
+        m_plots.push_back({label,value});
 }
 
 void IPendulum::ctrl_thread_func(Frequency loop_rate) {

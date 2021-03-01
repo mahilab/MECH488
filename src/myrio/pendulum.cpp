@@ -32,11 +32,12 @@ public:
         // 5. Convert motor torque to command voltage (torque -> amps -> volts)
         // 6. Return the command voltage in [V].
 
-        // TIP: Use the plot() function to stream any data you need to visualize to the GUI plotter:
-        plot("MyPlot1", sin(2*PI*0.5*t)); 
-        // plot("MyPlot2", sin(2*PI*1.0*t)); 
+        // TIP: Use the plot() function visualize transient data in the GUI.
+        //      You can plot up to 5 variables at a time.
+        double my_var = sin(2*PI*0.5*t);
+        plot("My Variable 1", my_var); 
 
-        double command_voltage = sin(2*PI*0.5*t);
+        double command_voltage = 0;
         return command_voltage;
     }
 
@@ -54,11 +55,12 @@ public:
         // 5. Convert motor torque to command voltage (torque -> amps -> volts)
         // 6. Return the command voltage in [V].
 
-        // TIP: Use the plot() function to stream any data you need to visualize to the GUI plotter:
-        plot("MyPlot3", sin(2*PI*0.5*t)); 
-        // plot("MyPlot4", sin(2*PI*1.0*t)); 
+        // TIP: Use the plot() function visualize transient data in the GUI.
+        //      You can plot up to 5 variables at a time.
+        double my_var = sin(2*PI*1.0*t);
+        plot("My Variable 2", my_var); 
 
-        double command_voltage = sin(2*PI*0.5*t);
+        double command_voltage = 0;
         return command_voltage;
     }
 public:

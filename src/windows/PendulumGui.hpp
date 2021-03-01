@@ -69,5 +69,5 @@ private:
     DataBuffer      m_midoriData;
     DataBuffer      m_encoderData;
     DataBuffer      m_enableData;
-    std::map<std::string,std::pair<bool,DataBuffer>> m_plots;
+    std::map<std::string,DataBuffer> m_plots;
 };

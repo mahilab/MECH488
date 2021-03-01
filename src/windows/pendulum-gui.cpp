@@ -1,4 +1,4 @@
-#define MAHI_GUI_NO_CONSOLE
+// #define MAHI_GUI_NO_CONSOLE
 #include "PendulumGui.hpp"
 
 int main(int argc, char const *argv[])

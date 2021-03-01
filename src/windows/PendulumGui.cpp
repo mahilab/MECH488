@@ -26,7 +26,7 @@ static GuiLogWritter<TxtFormatter> writer;
 #endif
 
 PendulumGui::PendulumGui() : 
-    Application(WIDTH,HEIGHT,TITLE),
+    Application(WIDTH,HEIGHT,TITLE,false),
     m_connected(false),
     m_queue(2000)
 {
@@ -219,7 +219,7 @@ void PendulumGui::export_data(const std::string& filepath) {
              << m_encoderData.data[i] << ","
              << m_enableData.data[i]  << ",";
         for (auto& p : m_plots)
-            file << p.second.second.data[i] << ",";
+            file << p.second.data[i] << ",";
         file << std::endl;
         if (++i == N)
             i = 0;             
@@ -305,47 +305,44 @@ void PendulumGui::show_plot() {
 
     static double latestTime = 0;
     static bool   paused     = false;
+    static std::set<std::string> seen;
+    seen.clear();
 
     // thread safe section
     {        
         std::lock_guard<std::mutex> lock(m_data_mtx);
-        // reset flag on all user plots
-        for (auto& p : m_plots)
-            p.second.first = false;
-        // count of new samples received
-        int new_samples = 0;
         // pop samples of queue
         while (m_queue.front()) {
             auto data = *m_queue.front();
             m_queue.pop();
+            int size   = m_timeData.data.size();
+            int offset = m_timeData.offset;
+            latestTime = data.state.time;
             if (!paused) {
-                latestTime = data.state.time;
                 m_timeData.push_back(latestTime);
                 m_senseData.push_back(data.state.sense);
                 m_commandData.push_back(data.state.command);
                 m_midoriData.push_back(data.state.midori);
                 m_encoderData.push_back(data.state.encoder);
                 m_enableData.push_back(data.state.enable);
-                // user plots
-                for (auto& p : data.plots) {
-                    // we will update these buffers manually to ensure size/offset consistency
-                    int size   = m_timeData.data.size();
-                    int offset = m_timeData.offset;
-                    m_plots[p.label].second.data.resize(size);
-                    m_plots[p.label].second.offset = m_timeData.offset;
-                    m_plots[p.label].second.data[size < MAX_SAMPLES ? size - 1 : offset] = p.value;
-                    // flag has having been updated
-                    m_plots[p.label].first = true; 
-                } 
-                new_samples++;           
             }
-        }
-        // pad un-updated plots with new_samples 0s
-        for (auto& p : m_plots) {
-            if (!p.second.first) {
-                for (int i = 0; i < new_samples; ++i)
-                    p.second.second.push_back(0);
+            // user plots
+            for (auto& p : data.plots) {
+                // flag as having been seen
+                seen.insert(p.label);
+                if (!paused) {
+                    m_plots[p.label].data.resize(size);
+                    m_plots[p.label].offset = offset;
+                    m_plots[p.label].push_back(p.value);
+                }
             }
+            // pad unseen plots
+            if (!paused) {
+                for (auto& p : m_plots) {
+                    if (!seen.count(p.first))
+                        p.second.push_back(0);
+                }
+            }             
         }
     }
 
@@ -354,10 +351,11 @@ void PendulumGui::show_plot() {
     }
     ImGui::SameLine();
     if (ImGui::Button("Export",ImVec2(100,0))) {
+        paused = true;
         auto sd = [this]() {
             std::string path;
             if (save_dialog(path, {{"CSV","csv"}}) == DialogResult::DialogOkay)
-                export_data(path);            
+                export_data(path);
         };
         std::thread thrd(sd);
         thrd.detach();
@@ -398,8 +396,8 @@ void PendulumGui::show_plot() {
         if (show_user && m_timeData.data.size() > 0) {
             ImPlot::SetPlotYAxis(ImPlotYAxis_3);
             for (auto& p : m_plots) {
-                // if (p.second.first)
-                    ImPlot::PlotLine(p.first.c_str(), &m_timeData.data[0], &p.second.second.data[0], m_timeData.data.size(), m_timeData.offset);
+                if (seen.count(p.first))
+                    ImPlot::PlotLine(p.first.c_str(), &m_timeData.data[0], &p.second.data[0], m_timeData.data.size(), m_timeData.offset);
             }
         }
         ImPlot::EndPlot();
