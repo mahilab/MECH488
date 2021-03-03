@@ -9,28 +9,21 @@
 
 using namespace mahi::gui;
 
-struct DataBuffer {
-    DataBuffer() {
-        offset = 0;
-        data.reserve(MAX_SAMPLES);
-    }
+struct DataBuffer {    
     void push_back(double v) {
-        if (data.size() < MAX_SAMPLES)
-            data.push_back(v);
+        if (size < MAX_SAMPLES) {
+            data[size++] = v;       
+        } 
         else {
             data[offset] = v;
             offset       = (offset + 1) % MAX_SAMPLES;
         }
     }
-    void clear() {
-        if (data.size() > 0) {
-            data.shrink(0);
-            offset = 0;
-        }
-    }
+    void clear() { size = offset = 0; }
 public:
-    int               offset;
-    ImVector<double>  data;
+    int    size              = 0;
+    int    offset            = 0;
+    double data[MAX_SAMPLES] = {0};
 };
 
 class PendulumGui : public Application {

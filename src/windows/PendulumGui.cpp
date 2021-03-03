@@ -20,9 +20,9 @@ static GuiLogWritter<TxtFormatter> writer;
 #define WIDTH 1260
 #define HEIGHT 720
 #ifdef _DEBUG
-#define TITLE "Pendulum GUI (Debug)"
+#define TITLE "Pendulum GUI - MAHI Lab (Debug)"
 #else
-#define TITLE "Pendulum GUI"
+#define TITLE "Pendulum GUI - MAHI Lab"
 #endif
 
 PendulumGui::PendulumGui() : 
@@ -49,7 +49,6 @@ PendulumGui::~PendulumGui() {
 }
 
 void PendulumGui::update() {
-
 
     ping();
 
@@ -210,7 +209,7 @@ void PendulumGui::export_data(const std::string& filepath) {
     file << std::endl;
     // write data
     int i = m_timeData.offset;
-    int N = m_timeData.data.size();
+    int N = m_timeData.size;
     for (int n = 0; n < N; ++n) {
         file << m_timeData.data[i]    << ","
              << m_senseData.data[i]   << ","
@@ -315,7 +314,7 @@ void PendulumGui::show_plot() {
         while (m_queue.front()) {
             auto data = *m_queue.front();
             m_queue.pop();
-            int size   = m_timeData.data.size();
+            int size   = m_timeData.size;
             int offset = m_timeData.offset;
             latestTime = data.state.time;
             if (!paused) {
@@ -331,7 +330,7 @@ void PendulumGui::show_plot() {
                 // flag as having been seen
                 seen.insert(p.label);
                 if (!paused) {
-                    m_plots[p.label].data.resize(size);
+                    m_plots[p.label].size   = size;
                     m_plots[p.label].offset = offset;
                     m_plots[p.label].push_back(p.value);
                 }
@@ -367,37 +366,35 @@ void PendulumGui::show_plot() {
         paused = !paused;
     }
     static bool show_default = true;
-    static bool show_user    = true;
     ImGui::SameLine();
     ImGui::Checkbox("Default Plots",&show_default);
-    ImGui::SameLine();
-    ImGui::Checkbox("User Plots",&show_user);
 
     ImGui::SameLine(880);
     ImGui::Text("    %.3f FPS", ImGui::GetIO().Framerate);
     if (!paused && m_connected)
         ImPlot::SetNextPlotLimitsX(latestTime - 10, latestTime, ImGuiCond_Always);
-    ImPlot::SetNextPlotLimitsY(-10,10,ImPlotYAxis_1);
-    if (ImPlot::BeginPlot("##State", "Time [s]", "Voltage [V]", ImVec2(-1,-1), show_user ? ImPlotFlags_YAxis2 | ImPlotFlags_YAxis3 : ImPlotFlags_YAxis2, 0, 0, 0, 0, "Counts", "User")) {
-        if (show_default && m_timeData.data.size() > 0) {
-            ImPlot::SetPlotYAxis(ImPlotYAxis_1);
-            ImPlot::SetNextFillStyle(Blues::DeepSkyBlue);        
-            ImPlot::PlotDigital("Enable",  &m_timeData.data[0], &m_enableData.data[0], m_timeData.data.size(), m_timeData.offset);
-            ImPlot::SetNextLineStyle(Yellows::Yellow);
-            ImPlot::PlotLine("Sense", &m_timeData.data[0], &m_senseData.data[0], m_timeData.data.size(), m_timeData.offset);
-            ImPlot::SetNextLineStyle(Oranges::Orange);
-            ImPlot::PlotLine("Command", &m_timeData.data[0], &m_commandData.data[0], m_timeData.data.size(), m_timeData.offset);
-            ImPlot::SetNextLineStyle(Cyans::LightSeaGreen);
-            ImPlot::PlotLine("Midori", &m_timeData.data[0], &m_midoriData.data[0], m_timeData.data.size(), m_timeData.offset);
+    ImPlot::SetNextPlotLimitsY(-10,10, ImGuiCond_Appearing, ImPlotYAxis_2);
+    ImPlot::SetNextPlotLimitsY(-2000,2000,ImGuiCond_Appearing, ImPlotYAxis_3);
+    if (ImPlot::BeginPlot("##State", "Time [s]", NULL, ImVec2(-1,-1), show_default ? ImPlotFlags_YAxis2 | ImPlotFlags_YAxis3 : 0, 0, 0, 0, 0, "Voltage [V]", "Counts")) {
+        if (show_default && m_timeData.size > 0) {
             ImPlot::SetPlotYAxis(ImPlotYAxis_2);
-            ImPlot::SetNextLineStyle(Whites::White);
-            ImPlot::PlotLine("Encoder", &m_timeData.data[0], &m_encoderData.data[0], m_timeData.data.size(), m_timeData.offset);
-        }
-        if (show_user && m_timeData.data.size() > 0) {
+            ImPlot::SetNextFillStyle(Blues::DeepSkyBlue);        
+            ImPlot::PlotDigital("Enable",  &m_timeData.data[0], &m_enableData.data[0], m_timeData.size, m_timeData.offset);
+            ImPlot::SetNextLineStyle(Yellows::Yellow);
+            ImPlot::PlotLine("Sense", &m_timeData.data[0], &m_senseData.data[0], m_timeData.size, m_timeData.offset);
+            ImPlot::SetNextLineStyle(Oranges::Orange);
+            ImPlot::PlotLine("Command", &m_timeData.data[0], &m_commandData.data[0], m_timeData.size, m_timeData.offset);
+            ImPlot::SetNextLineStyle(Cyans::LightSeaGreen);
+            ImPlot::PlotLine("Midori", &m_timeData.data[0], &m_midoriData.data[0], m_timeData.size, m_timeData.offset);
             ImPlot::SetPlotYAxis(ImPlotYAxis_3);
+            ImPlot::SetNextLineStyle(Whites::White);
+            ImPlot::PlotLine("Encoder", &m_timeData.data[0], &m_encoderData.data[0], m_timeData.size, m_timeData.offset);
+        }
+        if (m_timeData.size > 0) {
+            ImPlot::SetPlotYAxis(ImPlotYAxis_1);
             for (auto& p : m_plots) {
                 if (seen.count(p.first))
-                    ImPlot::PlotLine(p.first.c_str(), &m_timeData.data[0], &p.second.data[0], m_timeData.data.size(), m_timeData.offset);
+                    ImPlot::PlotLine(p.first.c_str(), &m_timeData.data[0], &p.second.data[0], m_timeData.size, m_timeData.offset);
             }
         }
         ImPlot::EndPlot();
@@ -435,7 +432,7 @@ void PendulumGui::style_gui() {
     ImVec4 light_accent = ImVec4(0.951f, 0.208f, 0.387f, 1.000f);
 
     set_background({0.15f, 0.16f, 0.21f, 1.00f});
-    ImPlot::SetColormap(ImPlotColormap_Default);
+    // ImPlot::SetColormap(ImPlotColormap_Default);
 
     auto& style = ImGui::GetStyle();
     style.WindowPadding = {6,6};
