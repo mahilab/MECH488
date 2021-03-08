@@ -201,6 +201,10 @@ void IPendulum::ctrl_thread_func(Frequency loop_rate) {
             myrio.mspC.encoder.zero(0);
             g_zero = false;
         }
+        if (myrio.mspC.encoder.has_encoder_error({0})){
+            myrio.mspC.encoder.clear_encoder_error({0});
+            LOG(Verbose) << "Clearing encoder error";
+        }
         // read inputs
         myrio.read_all();
         state.tick    = timer.get_elapsed_ticks();
