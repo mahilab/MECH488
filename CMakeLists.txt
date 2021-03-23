@@ -30,14 +30,16 @@ elseif(NI_LRT)
     FetchContent_Declare(mahi-robo GIT_REPOSITORY https://github.com/mahilab/mahi-robo.git) 
     FetchContent_MakeAvailable(mahi-robo)
     # fetch IIR filters from GitHub and exclude their demos from build
-    FetchContent_Declare(iir GIT_REPOSITORY https://github.com/berndporr/iir1) 
+    FetchContent_Declare(iir 
+        GIT_REPOSITORY https://github.com/berndporr/iir1
+        GIT_TAG        580a389dfbc4e7296653f124c7d0bb593031a2ef) 
     FetchContent_MakeAvailable(iir)
     set_target_properties(iirdemo ecg50hzfilt PROPERTIES EXCLUDE_FROM_ALL 1 EXCLUDE_FROM_DEFAULT_BUILD 1)
 
     # basic myRIO application
-    add_executable(myrio src/myrio/myrio.cpp)
-    target_link_libraries(myrio mahi::daq mahi::robo mahi::com)
-    target_include_directories(myrio PUBLIC src)
+    # add_executable(myrio src/myrio/myrio.cpp)
+    # target_link_libraries(myrio mahi::daq mahi::robo mahi::com)
+    # target_include_directories(myrio PUBLIC src)
 
     # Pendulum application
     add_executable(pendulum src/myrio/pendulum.cpp src/myrio/IPendulum.hpp src/myrio/IPendulum.cpp)

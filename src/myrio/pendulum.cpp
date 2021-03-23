@@ -5,69 +5,72 @@
 // PENDULUM
 //=============================================================================
 
+using namespace mahi::util;
+
 /// Your pendulum implementation inherits from IPendulum.
 class MyPendulum : public IPendulum {
 public:
     /// Constructor. Called when we make our MyPendulum instance in main().
-    MyPendulum() {
-        // initialize our filter(s)
-        double fSample = 1000; // sampling frequency [Hz]
-        double fCutoff = 10;   // cutoff frequency   [Hz]
-        butt.setup(fSample,fCutoff);
-
-        // do any other initialization you need here too ...
+    MyPendulum(double sample_freq_): sample_freq(sample_freq_) {      
+        
+        ///// IF YOU NEED TO DO ANY SETUP FOR VARIABLES, THAT GOES HERE /////
+        // my_filter.setup(sample_freq, 10.0);
+        // ... any other setup you want to do 
+        
+        ///// END SETUP /////
     }
 
-    /// Part 1: Implement control with encoder position feedback.
+    /// Part 1: Implement control with Midori potentiometer position feedback.
+    double control_midori(double t, double midori_volts) override {
+        // This function should compute an amplifier command voltage given the
+        // current controller time in seconds and Midori position in volts. 
+
+        static double volts_last = 0.0;
+
+        // See tips in the wiki
+        double my_var = sin(2*PI*1.0*t);
+        plot("My Variable 2", my_var); 
+
+        // See tips in the wiki
+        volts_last = midori_volts;
+
+        double command_voltage = 0;
+        return command_voltage;
+    }
+
+    /// Part 2: Implement control with encoder position feedback.
     double control_encoder(double t, int counts) override {
 
         // This function should compute an amplifier command voltage given the
         // current controller time in seconds and encoder position in counts. 
-        // Your responsibilities include but are not limited to:   
 
-        // 1. Convert encoder counts to angular position.
-        // 2. Differentiate and/or integrate angular position for your PID implementation.
-        // 3. Filter these state variables as needed (use butt.filter() or your own method).
-        // 4. Implement a PID, PI, or PD controller to compute motor torque.
-        // 5. Convert motor torque to command voltage (torque -> amps -> volts)
-        // 6. Return the command voltage in [V].
+        // See tips in the wiki for static objects
+        static double counts_last = 0.0;
+        static Butterworth my_filter(2, hertz(sample_freq), hertz(10));
+        
+        // how to use the filter
+        double counts_filtered = my_filter.update(counts);
 
-        // TIP: Use the plot() function visualize transient data in the GUI.
-        //      You can plot up to 5 variables at a time.
+        // See tips in the wiki for plotting
         double my_var = sin(2*PI*0.5*t);
         plot("My Variable 1", my_var); 
 
-        double command_voltage = 0;
-        return command_voltage;
-    }
-
-    /// Part 2: Implement control with Midori potentiometer position feedback.
-    double control_midori(double t, double midori_volts) override {
-
-        // This function should compute an amplifier command voltage given the
-        // current controller time in seconds and Midori position in volts. 
-        // Your responsibilities include but are not limited to:   
-
-        // 1. Convert Midori potentiometer voltage to angular position.
-        // 2. Differentiate and/or integrate angular position for your PID implementation.
-        // 3. Filter these state variables as needed (use butt.filter() or your own method).
-        // 4. Implement a PID, PI, or PD controller to compute motor torque.
-        // 5. Convert motor torque to command voltage (torque -> amps -> volts)
-        // 6. Return the command voltage in [V].
-
-        // TIP: Use the plot() function visualize transient data in the GUI.
-        //      You can plot up to 5 variables at a time.
-        double my_var = sin(2*PI*1.0*t);
-        plot("My Variable 2", my_var); 
+        // See tips in the wiki
+        counts_last = counts;
 
         double command_voltage = 0;
         return command_voltage;
     }
+
 public:
-    Iir::Butterworth::LowPass<2> butt; // A 2nd order low-pass Butterworth filter. Usage:
-                                       // double output = butt.filter(input);
-                                       // Make as many of these as you need.There are also 
-                                       // other filter types in Iir:: namespace.
+    double sample_freq;       // our samplerate in Hz
+    
+    ///// VARIABLES THAT YOU WANT TO KEEP VALUE BETWEEN SAMPLES GO HERE! /////
+    // LowPassFilter my_filter;  // lowpass filter to filter encoder
+    // double counts_last = 0.0; // variable to store previous value of counts
+    // double volts_last = 0.0;  // variable to store previous value of volts
+    // ... whatever other variables you want to add
+    ///// END VARIABLES ///// 
 };
 
 //=============================================================================
@@ -76,10 +79,15 @@ public:
 
 // main is the entry point for the program; everything starts here
 int main(int argc, char const *argv[]) {    
+
+    ////// ADJUST YOUR SAMPLE RATE HERE //////
+    Frequency sample_rate = hertz(1000);
+    //////  DON'T TOUCH ANYTHING ELSE  ///////
+
     // create an instance of your pendulum
-    MyPendulum pend;
+    MyPendulum pend(sample_rate.as_hertz());
     // run the pendulum at 1 kHz (don't increase past 2 kHz)
-    pend.run(1000_Hz);
+    pend.run(sample_rate);
     // return 0 for success
     return 0;
 }
