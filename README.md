@@ -1,3 +1,7 @@
+# MECH 488/588 Students
+
+See the [wiki](https://github.com/mahilab/MECH488/wiki) for instructions on the project
+
 # Pinout and Connections
 
 If you plan to use the `IPendulum` interface, you are expected to connect the myRIO to the Pendulum as follows:
