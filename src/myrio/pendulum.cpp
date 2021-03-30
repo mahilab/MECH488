@@ -81,6 +81,7 @@ public:
 int main(int argc, char const *argv[]) {    
 
     ////// ADJUST YOUR SAMPLE RATE HERE //////
+    // Don't increase past 2 kHz here
     Frequency sample_rate = hertz(1000);
     //////  DON'T TOUCH ANYTHING ELSE  ///////
 
