@@ -2,26 +2,6 @@
 
 See the [wiki](https://github.com/mahilab/MECH488/wiki) for instructions on the project
 
-# Pinout and Connections
-
-If you plan to use the `IPendulum` interface, you are expected to connect the myRIO to the Pendulum as follows:
-
-|Pendulum|myRIO|Comments|
-|---|---|---|
-|Z|-|no connection|
-|B|DIO2||
-|A|DIO0||
-|5V|5V||
-|GND|AGND/DGND|tie myRIO grounds
-|ENB|DIO1|
-|SNS|AI0+|
-|REF+|AO0|
-|REF-|AGND|
-|M1|5V||
-|M2|AI1+||
-|M3|AGND||
-|-|AI0-/AI1-/AGND|tie
-
 # Initial Setup (MECH 488 TAs only)
 
 ## myRIO Hardware
