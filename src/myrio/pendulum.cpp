@@ -25,13 +25,14 @@ public:
         // This function should compute an amplifier command voltage given the
         // current controller time in seconds and Midori position in volts. 
 
+        // See tips in the wiki for static variables
         static double volts_last = 0.0;
 
-        // See tips in the wiki
+        // See tips in the wiki for plotting variables
         double my_var = sin(2*PI*1.0*t);
         plot("My Variable 2", my_var); 
 
-        // See tips in the wiki
+        // See tips in the wiki for static variables
         volts_last = midori_volts;
 
         double command_voltage = 0;
@@ -44,18 +45,18 @@ public:
         // This function should compute an amplifier command voltage given the
         // current controller time in seconds and encoder position in counts. 
 
-        // See tips in the wiki for static objects
-        static double counts_last = 0.0;
-        static Butterworth my_filter(2, hertz(sample_freq), hertz(10));
-        
-        // how to use the filter
+        // See tips in the wiki for static variables
+        static int counts_last = 0.0;
+
+        // See tips in the wiki for filtering 
+        static Butterworth my_filter(2, hertz(10), hertz(sample_freq));
         double counts_filtered = my_filter.update(counts);
 
         // See tips in the wiki for plotting
         double my_var = sin(2*PI*0.5*t);
         plot("My Variable 1", my_var); 
 
-        // See tips in the wiki
+        // See tips in the wiki for static variables
         counts_last = counts;
 
         double command_voltage = 0;
@@ -65,11 +66,9 @@ public:
 public:
     double sample_freq;       // our samplerate in Hz
     
-    ///// VARIABLES THAT YOU WANT TO KEEP VALUE BETWEEN SAMPLES GO HERE! /////
-    // LowPassFilter my_filter;  // lowpass filter to filter encoder
-    // double counts_last = 0.0; // variable to store previous value of counts
-    // double volts_last = 0.0;  // variable to store previous value of volts
-    // ... whatever other variables you want to add
+    ///// YOU CAN PUT VARIABLES HERE TO KEEP BETWEEN SAMPLES /////
+    /////   BUT STATIC VARIABLES WILL PROBABLY WORK INSTEAD  /////
+
     ///// END VARIABLES ///// 
 };
 
