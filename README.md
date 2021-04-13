@@ -47,6 +47,7 @@ chmod 777 NiFpga_MyRio1900Fpga60.lvbitx
 ## Cross-Compiler
 
 - Download and install the [NI ARM cross-compiler](http://www.ni.com/download/labview-real-time-module-2018/7813/en/) to `C:/dev/nilrt-arm` so that the directory contains `sysroots/`, `relocate_sdk.py`, etc. 
+- You must also install [ninja](https://ninja-build.org/) (recommended to use [chocolatey](https://chocolatey.org/) to run `choco install ninja`).
 - Once this is installed, you should be able to use the [nilrt-arm] kit with CMake Tools in VSCode to compile for the myRIO from Windows.
 - Otherwise, `mahi-daq` ships with a CMake toolchain file, which can be used like so:
 
