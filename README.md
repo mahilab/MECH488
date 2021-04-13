@@ -31,7 +31,7 @@ If you plan to use the `IPendulum` interface, you are expected to connect the my
 - Ensure that the current firmware version is `7.0.0f0`. If it is not, click the `Update Firmware` button and install the latest firmware.
 - Ensure `Enable Secure Shell Serve (sshd)` is enabled. 
 
-![MAX](https://raw.githubusercontent.com/mahilab/MECH488/master/docs/max.png)
+![MAX](https://raw.githubusercontent.com/mahilab/MECH488/master/docs/images/max.png)
 
 - SFTP the FPGA bitfile from [mahi-daq/misc](https://github.com/mahilab/mahi-daq/tree/master/misc) to the myRIO device:
 ```shell
@@ -62,4 +62,4 @@ chmod 777 NiFpga_MyRio1900Fpga60.lvbitx
 
 - If you notice that the pendulum GUI is not receiving packets from the myRIO, you may need to update Windows firewall settings. For every instance of `pendulum-gui`, allow all settings as shown below:
 
-![MAX](https://raw.githubusercontent.com/mahilab/MECH488/master/docs/firewal.png)
+![Firewall](https://raw.githubusercontent.com/mahilab/MECH488/master/docs/images/firewall.png)
